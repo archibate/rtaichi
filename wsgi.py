@@ -88,7 +88,7 @@ class WorkerProcess:
 
                 e = self.Event()
                 e.type = getattr(self, type)
-                e.key = getattr(self, key)
+                e.key = getattr(self, key, key.lower())
                 e.pos = x, y
                 e.modifier = []
                 self.cursor_pos = x, y

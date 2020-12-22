@@ -24,18 +24,33 @@ $(function() {
             ws.close();
         });
 
+        var lastx = 0, lasty = 0;
+
         function mouse(e, type, key) {
             e.preventDefault();
-            var rect = e.target.getBoundingClientRect();
-            var mx = (e.clientX - rect.left) / (rect.right - rect.left);
-            var my = 1 - (e.clientY - rect.top) / (rect.bottom - rect.top);
+            var rect = $('#canvas').get()[0].getBoundingClientRect();
+            var mx = e.clientX != undefined ? (e.clientX - rect.left) / (rect.right - rect.left) : lastx;
+            var my = e.clientX != undefined ? 1 - (e.clientY - rect.top) / (rect.bottom - rect.top) : lasty;
             if (key == undefined) {
                 key = ['MOVE', 'LMB', 'MMB', 'RMB'][e.which];
             }
-            ws.send(`key:${type}:${key}:${mx}:${my}:0:0`);
+            if (0 <= mx && mx <= 1 && 0 <= my && my <= 1) {
+                ws.send(`key:${type}:${key}:${mx}:${my}:0:0`);
+                lastx = mx;
+                lasty = my;
+            }
         }
 
-        $('#canvas').mousedown(function (e) {
+        function keyevent(e, type) {
+            console.log('key', e.keyCode);
+            var k = String.fromCharCode(e.keyCode);
+            mouse(e, type, k);
+        }
+
+        $(document).contextmenu(function (e) {
+            e.preventDefault();
+            return false;
+        }).mousedown(function (e) {
             mouse(e, 'PRESS');
             return false;
         }).mouseup(function (e) {
@@ -44,8 +59,11 @@ $(function() {
         }).mousemove(function (e) {
             mouse(e, 'MOTION', 'MOVE');
             return false;
-        }).contextmenu(function (e) {
-            e.preventDefault();
+        }).keydown(function (e) {
+            keyevent(e, 'PRESS');
+            return false;
+        }).keyup(function (e) {
+            keyevent(e, 'RELEASE');
             return false;
         });
 
