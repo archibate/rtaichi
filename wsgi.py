@@ -4,6 +4,7 @@ from geventwebsocket.handler import WebSocketHandler
 from geventwebsocket.websocket import WebSocket
 from gevent.pywsgi import WSGIServer
 from threading import Thread
+from base64 import b64encode
 from gevent import Timeout
 from PIL import Image
 from io import BytesIO
@@ -15,7 +16,10 @@ import sys
 import os
 
 
-app = Flask('falcon9')
+B64 = 1
+
+
+app = Flask('rtaichi')
 
 
 @app.route('/')
@@ -26,7 +30,7 @@ def index():
 
 
 def my_program():
-    import examples.simple_uv
+    import examples.waterwave
 
 
 class WorkerProcess:
@@ -75,7 +79,7 @@ class WorkerProcess:
     def request_frame(self):
         h, w = struct.unpack('<ii', bytes(self.raw[:8]))
         if h <= 0 or w <= 0 or h * w * 3 > self.MAX_SHM_SIZE:
-            return struct.pack('<ii', 0, 0)
+            return 0, 0, b''
 
         imgbuf = ctypes.addressof(self.raw) + 8
         img = ctypes.string_at(imgbuf, w * h * 3)
@@ -86,8 +90,7 @@ class WorkerProcess:
             im.save(f, 'jpeg')
             im = f.getvalue()
 
-        im = struct.pack('<ii', w, h) + im
-        return im
+        return w, h, im
 
 
 @app.route('/wsock')
@@ -98,7 +101,11 @@ def wsock():
 
     wp = WorkerProcess(my_program)
     while not ws.closed:
-        im = wp.request_frame()
+        w, h, im = wp.request_frame()
+        if B64:
+            im = f'{w:04d}{h:04d}' + b64encode(im).decode('ascii')
+        else:
+            im = struct.pack('<ii', w, h) + im
         ws.send(im)
 
         with Timeout(1 / 24, False):
@@ -112,7 +119,7 @@ def wsock():
 
 if __name__ == '__main__':
     os.system('clear')
-    host, port = '0.0.0.0', 8123
+    host, port = '0.0.0.0', 3389
     print(f'listening at {host}:{port}')
     server = WSGIServer((host, port), app, handler_class=WebSocketHandler)
     server.serve_forever()

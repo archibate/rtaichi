@@ -17,7 +17,7 @@ $(function() {
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     $('#btn-open').click(function (e) {
-        var ws = new WebSocket('ws://localhost:8123/wsock');
+        var ws = new WebSocket('ws://142857.red:3389/wsock');
 
         $('#btn-close').click(function (e) {
             ws.send('close');
@@ -33,8 +33,32 @@ $(function() {
         };
 
         var lastTime = Date.now();
+        function update(data, w, h) {
+            var img = new Image(w, h);
+            img.onload = function () {
+                canvas.width = w;
+                canvas.height = h;
+                ctx.drawImage(img, 0, 0, w, h);
+
+                var t = Date.now();
+                $('#info-kib').html(data.length >> 10);
+                $('#info-res').html(w + 'x' + h);
+                $('#info-fps').html(Math.round(1000 / (t - lastTime)));
+                lastTime = t;
+            };
+            img.src = 'data:image/jpeg;base64,' + data;
+        }
+
         ws.onmessage = function (e) {
             // console.log('ws received:', e.data);
+
+            if (e.data.stream == undefined) {
+                var w = e.data.slice(0, 4) | 0;
+                var h = e.data.slice(4, 8) | 0;
+                var data = e.data.slice(8);
+                update(data, w, h);
+                return;
+            }
 
             e.data.stream().getReader().read().then(function (res) {
                 var data = res.value;
@@ -43,26 +67,13 @@ $(function() {
                 var h = data[4] | data[5] << 8 | data[6] << 16 | data[7] << 24;
                 // afterwards the real jpeg data starts:
                 data = data.subarray(8, data.length - 8);
-                var b64_data = b64encode(data);
-
-                var img = new Image(w, h);
-                img.onload = function () {
-                    canvas.width = w;
-                    canvas.height = h;
-                    ctx.drawImage(img, 0, 0, w, h);
-
-                    var t = Date.now();
-                    $('#info-kib').html(data.length >> 10);
-                    $('#info-res').html(w + 'x' + h);
-                    $('#info-fps').html(Math.round(1000 / (t - lastTime)));
-                    lastTime = t;
-                };
-                img.src = 'data:image/jpeg;base64,' + b64_data;
+                data = b64encode(data);
+                update(data, w, h);
             });
         };
 
         ws.onerror = function (e) {
-            console.log('ws got error:', e.data);
+            console.log('ws got error:', e);
         };
     });
 });
