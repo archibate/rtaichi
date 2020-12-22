@@ -53,7 +53,7 @@ $(function() {
                 ctx.drawImage(img, 0, 0, w, h);
 
                 var t = Date.now();
-                // console.log(Math.round(1000 / (t - lastTime)), 'FPS');
+                $('#fps').html(Math.round(1000 / (t - lastTime)));
                 lastTime = t;
             };
             img.src = 'data:image/jpeg;base64,' + b64_data;

@@ -4,6 +4,7 @@ from geventwebsocket.handler import WebSocketHandler
 from geventwebsocket.websocket import WebSocket
 from gevent.pywsgi import WSGIServer
 from threading import Thread
+from gevent import Timeout
 from PIL import Image
 from io import BytesIO
 import numpy as np
@@ -11,6 +12,7 @@ import ctypes
 import struct
 import time
 import sys
+import os
 
 
 app = Flask('falcon9')
@@ -27,10 +29,22 @@ def my_program():
     import taichi as ti
     import numpy as np
 
-    gui = ti.GUI()
-    while gui.running and not gui.get_event(gui.ESCAPE):
-        img = np.random.rand(512, 512).astype(np.float32)
-        gui.set_image(img)
+    ti.init()
+
+    res = (512, 512)
+    pixels = ti.Vector.field(3, dtype=float, shape=res)
+
+    @ti.kernel
+    def paint():
+        for i, j in pixels:
+            u = i / res[0]
+            v = j / res[1]
+            pixels[i, j] = [u, v, 0]
+
+    gui = ti.GUI('UV', res)
+    while not gui.get_event(ti.GUI.ESCAPE):
+        paint()
+        gui.set_image(pixels)
         gui.show()
 
 
@@ -57,8 +71,6 @@ class WorkerProcess:
 
             def show(self, *args, **kwargs):
                 img = self.get_image()
-                img = img[:, ::-1, :3].swapaxes(0, 1)
-                img = np.uint8(img * 255)
                 worker.p_update(img)
                 super().show(*args, **kwargs)
 
@@ -68,16 +80,20 @@ class WorkerProcess:
         worker.entry()
 
     def p_update(self, img):
+        img = img[:, ::-1, :3].swapaxes(0, 1)
+        img = np.ascontiguousarray(np.uint8(img * 255))
         h, w, _ = img.shape
         for i, b in enumerate(struct.pack('<ii', w, h)):
             self.raw[i] = b
 
         imgbuf = ctypes.addressof(self.raw) + 8
+        if h * w * 3 > self.MAX_SHM_SIZE:
+            raise ValueError(f'image size too big: {w}x{h}x3')
         ctypes.memmove(imgbuf, img.ctypes.data, w * h * 3)
 
     def request_frame(self):
         h, w = struct.unpack('<ii', bytes(self.raw[:8]))
-        if h <= 0 or w <= 0 or h * w > self.MAX_SHM_SIZE:
+        if h <= 0 or w <= 0 or h * w * 3 > self.MAX_SHM_SIZE:
             return struct.pack('<ii', 0, 0)
 
         imgbuf = ctypes.addressof(self.raw) + 8
@@ -102,14 +118,19 @@ def wsock():
     wp = WorkerProcess(my_program)
     while not ws.closed:
         im = wp.request_frame()
-        time.sleep(1 / 24)
         ws.send(im)
-    print('websocket closed')
+
+        with Timeout(1 / 24, False):
+            cmd = ws.receive()
+            print('ws received:', cmd)
+
+    print('ws closed')
     wp.proc.kill()
     return ''
 
 
 if __name__ == '__main__':
+    os.system('clear')
     host, port = '0.0.0.0', 8123
     print(f'listening at {host}:{port}')
     server = WSGIServer((host, port), app, handler_class=WebSocketHandler)
