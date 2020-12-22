@@ -41,9 +41,30 @@ $(function() {
             }
         }
 
+        function keycode(k) {
+            var tab = {
+                9: 'TAB',
+                8: 'BACKSPACE',
+                13: 'RETURN',
+                16: 'SHIFT',
+                17: 'CTRL',
+                18: 'ALT',
+                20: 'CAPSLOCK',
+                27: 'ESCAPE',
+                37: 'LEFT',
+                38: 'UP',
+                39: 'RIGHT',
+                40: 'DOWN',
+            };
+            if (tab[k] != undefined) {
+                return tab[k];
+            }
+            return String.fromCharCode(k);
+        }
+
         function keyevent(e, type) {
-            console.log('key', e.keyCode);
-            var k = String.fromCharCode(e.keyCode);
+            var k = keycode(e.keyCode);
+            console.log('key', k);
             mouse(e, type, k);
         }
 
