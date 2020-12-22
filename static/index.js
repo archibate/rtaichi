@@ -24,6 +24,14 @@ $(function() {
             ws.close();
         });
 
+        $('#canvas').click(function (e) {
+            e.preventDefault();
+            var rect = e.target.getBoundingClientRect();
+            var mx = (evt.clientX - rect.left) / (rect.right - rect.left);
+            var my = (evt.clientY - rect.top) / (rect.bottom - rect.top);
+            console.log(mx, my);
+        });
+
         ws.onopen = function (e) {
             console.log('ws opened!');
         };

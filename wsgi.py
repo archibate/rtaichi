@@ -26,7 +26,7 @@ def index():
 
 
 def my_program():
-    import examples.simple_uv
+    import examples.waterwave
 
 
 class WorkerProcess:
