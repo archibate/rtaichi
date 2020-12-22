@@ -1,4 +1,4 @@
-from multiprocessing import Process, RawArray
+from multiprocessing import Process, RawArray, Queue
 from flask import Flask, request, render_template, send_file
 from geventwebsocket.handler import WebSocketHandler
 from geventwebsocket.websocket import WebSocket
@@ -29,8 +29,14 @@ def index():
     return render_template('index.html')
 
 
+@app.route('/static/index.js')
+def index_js():
+    print('request /static/index.js')
+    return render_template('index.js')
+
+
 def my_program():
-    import examples.fem99
+    import examples.keyboard
 
 
 class WorkerProcess:
@@ -38,11 +44,18 @@ class WorkerProcess:
 
     def __init__(self, entry):
         self.entry = entry
+        self.queue = Queue()
         self.raw = RawArray('B', self.MAX_SHM_SIZE)
         self.proc = Process(target=self.p_main, args=[], daemon=True)
         self.proc.start()
         self.joint = Thread(target=self.proc.join, args=[], daemon=True)
         self.joint.start()
+
+    def do_click(self, x, y):
+        x = float(x)
+        y = float(y)
+        event = 'PRESS', 'LMB', x, y, 0, 0
+        self.queue.put(event)
 
     def p_main(worker):
         import taichi as ti
@@ -53,11 +66,43 @@ class WorkerProcess:
                 assert not kwargs.get('fast_gui', False)
                 kwargs.setdefault('show_gui', False)
                 super().__init__(*args, **kwargs)
+                self.cursor_pos = 0, 0
 
             def show(self, *args, **kwargs):
                 img = self.get_image()
                 worker.p_update(img)
                 super().show(*args, **kwargs)
+
+            def get_cursor_pos(self):
+                return self.cursor_pos
+
+            def has_key_event(self):
+                return not worker.queue.empty()
+
+            def get_key_event(self):
+                type, key, x, y, dx, dy = worker.queue.get()
+
+                e = self.Event()
+                e.type = getattr(self, type)
+                e.key = getattr(self, key)
+                e.pos = x, y
+                e.modifier = []
+                self.cursor_pos = x, y
+
+                if e.key == self.WHEEL:
+                    e.delta = (dx, dy)
+                else:
+                    e.delta = (0, 0)
+
+                for mod in ['Shift', 'Alt', 'Control']:
+                    if self.is_pressed(mod):
+                        e.modifier.append(mod)
+
+                if e.type == self.PRESS:
+                    self.key_pressed.add(e.key)
+                else:
+                    self.key_pressed.discard(e.key)
+                return e
 
         RemoteGUI._wrapped = ti.GUI
         ti.GUI = RemoteGUI
@@ -107,9 +152,12 @@ def wsock():
             im = struct.pack('<ii', w, h) + im
         ws.send(im)
 
-        with Timeout(1 / 24, False):
-            cmd = ws.receive()
-            print('ws received:', cmd)
+        with Timeout(1 / 20, False):
+            msg = ws.receive()
+            if msg is not None:
+                cmd, *args = msg.split(':')
+                print('ws received:', cmd, args)
+                getattr(wp, f'do_{cmd}', lambda *x: x)(*args)
 
     print('ws closed')
     wp.proc.kill()
