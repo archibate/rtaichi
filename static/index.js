@@ -35,7 +35,7 @@ $(function() {
                 key = ['MOVE', 'LMB', 'MMB', 'RMB'][e.which];
             }
             if (0 <= mx && mx <= 1 && 0 <= my && my <= 1) {
-                ws.send(`key:${type}:${key}:${mx}:${my}:0:0`);
+                ws.send(`key:${type}:${key}:${mx}:${my}`);
                 lastx = mx;
                 lasty = my;
             }
@@ -64,7 +64,7 @@ $(function() {
 
         function keyevent(e, type) {
             var k = keycode(e.keyCode);
-            console.log('key', k);
+            // console.log('key', k);
             mouse(e, type, k);
         }
 

@@ -27,18 +27,18 @@ app = Flask('rtaichi')
 @app.route('/')
 @app.route('/index')
 def index():
-    print('request /index')
+    app.logger.info('request /index')
     return render_template('index.html')
 
 
 @app.route('/static/index.js')
 def index_js():
-    print('request /static/index.js')
+    app.logger.info('request /static/index.js')
     return render_template('index.js')
 
 
 def my_program():
-    import examples.mpm128
+    import examples.fem128
 
 
 class WorkerProcess:
@@ -53,12 +53,10 @@ class WorkerProcess:
         self.joint = Thread(target=self.proc.join, args=[], daemon=True)
         self.joint.start()
 
-    def do_key(self, type, key, x, y, dx, dy):
+    def do_key(self, type, key, x, y):
         x = float(x)
         y = float(y)
-        dx = int(x)
-        dy = int(y)
-        event = type, key, x, y, dx, dy
+        event = type, key, x, y
         self.queue.put(event)
 
     def p_main(worker):
@@ -84,7 +82,7 @@ class WorkerProcess:
                 return not worker.queue.empty()
 
             def get_key_event(self):
-                type, key, x, y, dx, dy = worker.queue.get()
+                type, key, x, y = worker.queue.get()
 
                 e = self.Event()
                 e.type = getattr(self, type)
@@ -94,7 +92,7 @@ class WorkerProcess:
                 self.cursor_pos = x, y
 
                 if e.key == self.WHEEL:
-                    e.delta = (dx, dy)
+                    raise NotImplementedError
                 else:
                     e.delta = (0, 0)
 
@@ -143,7 +141,7 @@ class WorkerProcess:
 
 @app.route('/wsock')
 def wsock():
-    print('request /wsock')
+    app.logger.info('request /wsock')
     ws = request.environ.get('wsgi.websocket')
     assert isinstance(ws, WebSocket)
 
@@ -160,10 +158,10 @@ def wsock():
             msg = ws.receive()
             if msg is not None:
                 cmd, *args = msg.split(':')
-                print('ws received:', cmd, args)
+                app.logger.debug('ws received:', cmd, args)
                 getattr(wp, f'do_{cmd}', lambda *x: x)(*args)
 
-    print('ws closed')
+    app.logger.info('ws closed')
     wp.proc.kill()
     return ''
 
