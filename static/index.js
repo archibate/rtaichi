@@ -41,9 +41,9 @@ $(function() {
                 ctx.drawImage(img, 0, 0, w, h);
 
                 var t = Date.now();
-                $('#info-kib').html(data.length >> 10);
                 $('#info-res').html(w + 'x' + h);
                 $('#info-fps').html(Math.round(1000 / (t - lastTime)));
+                $('#info-kib').html(data.length >> 10);
                 lastTime = t;
             };
             img.src = 'data:image/jpeg;base64,' + data;
@@ -52,24 +52,24 @@ $(function() {
         ws.onmessage = function (e) {
             // console.log('ws received:', e.data);
 
-            if (e.data.stream == undefined) {
-                var w = e.data.slice(0, 4) | 0;
-                var h = e.data.slice(4, 8) | 0;
-                var data = e.data.slice(8);
-                update(data, w, h);
+            if (e.data.stream != undefined) {
+                e.data.stream().getReader().read().then(function (res) {
+                    var data = res.value;
+                    // the first two int32 is for width and height in little-endian:
+                    var w = data[0] | data[1] << 8 | data[2] << 16 | data[3] << 24;
+                    var h = data[4] | data[5] << 8 | data[6] << 16 | data[7] << 24;
+                    // afterwards the real jpeg data starts:
+                    data = data.subarray(8, data.length - 8);
+                    data = b64encode(data);
+                    update(data, w, h);
+                });
                 return;
             }
 
-            e.data.stream().getReader().read().then(function (res) {
-                var data = res.value;
-                // the first two int32 is for width and height in little-endian:
-                var w = data[0] | data[1] << 8 | data[2] << 16 | data[3] << 24;
-                var h = data[4] | data[5] << 8 | data[6] << 16 | data[7] << 24;
-                // afterwards the real jpeg data starts:
-                data = data.subarray(8, data.length - 8);
-                data = b64encode(data);
-                update(data, w, h);
-            });
+            var w = e.data.slice(0, 4) | 0;
+            var h = e.data.slice(4, 8) | 0;
+            var data = e.data.slice(8);
+            update(data, w, h);
         };
 
         ws.onerror = function (e) {

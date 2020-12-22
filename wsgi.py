@@ -2,9 +2,9 @@ from multiprocessing import Process, RawArray
 from flask import Flask, request, render_template, send_file
 from geventwebsocket.handler import WebSocketHandler
 from geventwebsocket.websocket import WebSocket
+from base64 import b64encode
 from gevent.pywsgi import WSGIServer
 from threading import Thread
-from base64 import b64encode
 from gevent import Timeout
 from PIL import Image
 from io import BytesIO
@@ -30,7 +30,7 @@ def index():
 
 
 def my_program():
-    import examples.waterwave
+    import examples.fem99
 
 
 class WorkerProcess:
@@ -77,7 +77,7 @@ class WorkerProcess:
         ctypes.memmove(imgbuf, img.ctypes.data, w * h * 3)
 
     def request_frame(self):
-        h, w = struct.unpack('<ii', bytes(self.raw[:8]))
+        w, h = struct.unpack('<ii', bytes(self.raw[:8]))
         if h <= 0 or w <= 0 or h * w * 3 > self.MAX_SHM_SIZE:
             return 0, 0, b''
 
@@ -87,9 +87,8 @@ class WorkerProcess:
         im = Image.new('RGB', (w, h))
         im.frombytes(img)
         with BytesIO() as f:
-            im.save(f, 'jpeg')
+            im.save(f, 'jpeg', quality=20, optimize=True)
             im = f.getvalue()
-
         return w, h, im
 
 
