@@ -19,6 +19,9 @@ os.environ['TI_ARCH'] = 'cc'
 
 
 B64 = 1
+FPS = 2
+SCALE = 1.6
+QUALITY = 20
 
 
 app = Flask('rtaichi')
@@ -38,7 +41,7 @@ def index_js():
 
 
 def my_program():
-    import examples.fem128
+    import examples.waterwave
 
 
 class WorkerProcess:
@@ -133,8 +136,11 @@ class WorkerProcess:
 
         im = Image.new('RGB', (w, h))
         im.frombytes(img)
+        w = int(w / SCALE)
+        h = int(h / SCALE)
+        im = im.resize((w, h))
         with BytesIO() as f:
-            im.save(f, 'jpeg', quality=10, optimize=True)
+            im.save(f, 'jpeg', quality=QUALITY, optimize=True)
             im = f.getvalue()
         return w, h, im
 
@@ -154,7 +160,7 @@ def wsock():
             im = struct.pack('<ii', w, h) + im
         ws.send(im)
 
-        with Timeout(1 / 20, False):
+        with Timeout(1 / FPS, False):
             msg = ws.receive()
             if msg is not None:
                 cmd, *args = msg.split(':')
