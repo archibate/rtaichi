@@ -24,12 +24,29 @@ $(function() {
             ws.close();
         });
 
-        $('#canvas').click(function (e) {
+        function mouse(e, type, key) {
             e.preventDefault();
             var rect = e.target.getBoundingClientRect();
             var mx = (e.clientX - rect.left) / (rect.right - rect.left);
             var my = 1 - (e.clientY - rect.top) / (rect.bottom - rect.top);
-            ws.send(`click:${mx}:${my}`);
+            if (key == undefined) {
+                key = ['MOVE', 'LMB', 'MMB', 'RMB'][e.which];
+            }
+            ws.send(`key:${type}:${key}:${mx}:${my}:0:0`);
+        }
+
+        $('#canvas').mousedown(function (e) {
+            mouse(e, 'PRESS');
+            return false;
+        }).mouseup(function (e) {
+            mouse(e, 'RELEASE');
+            return false;
+        }).mousemove(function (e) {
+            mouse(e, 'MOTION', 'MOVE');
+            return false;
+        }).contextmenu(function (e) {
+            e.preventDefault();
+            return false;
         });
 
         ws.onopen = function (e) {

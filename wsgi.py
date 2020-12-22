@@ -15,6 +15,8 @@ import time
 import sys
 import os
 
+os.environ['TI_ARCH'] = 'cc'
+
 
 B64 = 1
 
@@ -36,7 +38,7 @@ def index_js():
 
 
 def my_program():
-    import examples.keyboard
+    import examples.mpm128
 
 
 class WorkerProcess:
@@ -51,10 +53,12 @@ class WorkerProcess:
         self.joint = Thread(target=self.proc.join, args=[], daemon=True)
         self.joint.start()
 
-    def do_click(self, x, y):
+    def do_key(self, type, key, x, y, dx, dy):
         x = float(x)
         y = float(y)
-        event = 'PRESS', 'LMB', x, y, 0, 0
+        dx = int(x)
+        dy = int(y)
+        event = type, key, x, y, dx, dy
         self.queue.put(event)
 
     def p_main(worker):
@@ -132,7 +136,7 @@ class WorkerProcess:
         im = Image.new('RGB', (w, h))
         im.frombytes(img)
         with BytesIO() as f:
-            im.save(f, 'jpeg', quality=20, optimize=True)
+            im.save(f, 'jpeg', quality=10, optimize=True)
             im = f.getvalue()
         return w, h, im
 
